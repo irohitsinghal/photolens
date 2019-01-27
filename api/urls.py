@@ -20,7 +20,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    re_path(r'^image/', include('upload.urls')),
+    re_path(r'^api/(?P<version>(v1|v2))/image/', include('upload.urls')),
 ]
 
 if settings.DEBUG:
