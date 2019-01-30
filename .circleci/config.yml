@@ -13,9 +13,9 @@ jobs:
           POSTGRES_USER: root
           POSTGRES_DB: circle_test
     steps:
-        - checkout  # checkout source code to working directory
-        - run:
-          command: |  # use pipenv to install dependencies
-            sudo pip install pipenv
-            pipenv install
+      - checkout  # checkout source code to working directory
+      - run:
+        command: |  # use pipenv to install dependencies
+          sudo pip install pipenv
+          pipenv install
 
