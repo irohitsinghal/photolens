@@ -106,3 +106,6 @@ venv.bak/
 #custom
 media
 .vscode
+ml/dataset
+.idea
+*migrations*
