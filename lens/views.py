@@ -1,14 +1,17 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+
 import cv2
+import numpy as np
+from PIL import Image
 
 from django.utils.datastructures import MultiValueDictKeyError
 from api.settings import BASE_DIR
 
 
-def index():
-    return Response("Try me!")
+samples_path = "/ml/dataset/"
+recognizer_path = "/ml/recognizer/trainingData.yml"
 
 
 @api_view(['POST'])
@@ -18,7 +21,7 @@ def create_dataset(request, version):
     resMsg = "Successfully Created dataset for id: {}"
 
     try:
-         # capture images from the webcam and process and detect the face
+        # capture images from the webcam and process and detect the face
         cam = cv2.VideoCapture(0)
         id = request.POST['userId']
         resMsg.format(id)
@@ -33,7 +36,7 @@ def create_dataset(request, version):
             for(x,y,w,h) in faces:
                 samples = samples + 1
                 # Saving the image dataset, only the face part
-                cv2.imwrite(BASE_DIR+'/ml/dataset/user.'+str(id)+'.'+str(samples)+'.jpg', gray[y:y+h,x:x+w])
+                cv2.imwrite(BASE_DIR + samples_path + 'user.'+str(id)+'.'+str(samples)+'.jpg', gray[y:y+h,x:x+w])
                 cv2.rectangle(img,(x,y),(x+w,y+h), (0,255,0), 2)
                 cv2.waitKey(250)
             cv2.imshow("Face",img)
@@ -51,3 +54,60 @@ def create_dataset(request, version):
             cam.release()
         cv2.destroyAllWindows()
     return Response(resMsg, status=resStatus)
+
+
+@api_view(['GET'])
+def trainer(request, version):
+    print("API Version:", version)
+    resStatus = status.HTTP_200_OK
+    resMsg = 'Successfully Trained Model with dataset of {id} people samples'
+    try:
+        faces, ids = getImageswithId(BASE_DIR + samples_path)
+        resMsg.format(id=len(set(ids)))
+        recognizer = cv2.face.LBPHFaceRecognizer_create()
+        recognizer.train(faces, ids)
+        recognizer.save(BASE_DIR+recognizer_path)
+    except:
+        resStatus = status.HTTP_500_INTERNAL_SERVER_ERROR
+        resMsg = "Exception occurred"
+
+    return Response(resMsg, status = resStatus)
+
+
+def getImageswithId(path):
+    import os
+    imagePaths = [os.path.join(path, file) for file in os.listdir(path)]
+    faces = []
+    ids = []
+    for imagepath in imagePaths:
+        faceimg = Image.open(imagepath).convert('L') #convert it to grayscale
+        facenp = np.array(faceimg, 'uint8')
+        ID = int(os.path.split(imagepath)[-1].split('.')[1])
+        faces.append(facenp)
+        ids.append(ID)
+        cv2.imshow("training", facenp)
+        cv2.waitKey(50)
+    cv2.destroyAllWindows()
+    return np.array(faces), np.array(ids)
+
+
+@api_view(['GET'])
+def detect(request, version):
+    print("API Version:", version)
+    resStatus = status.HTTP_200_OK
+    resMsg = "Person id: "
+    try:
+        recognizer = cv2.face.LBPHFaceRecognizer_create()
+        recognizer.read(BASE_DIR + recognizer_path)
+        cam = cv2.VideoCapture(0)
+        ret, img = cam.read()
+        cam.release()
+        cv2.destroyAllWindows()
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        id = recognizer.predict(gray)
+        resMsg += str(id)
+    except:
+        resStatus = status.HTTP_500_INTERNAL_SERVER_ERROR
+        resMsg = "Exception occurred"
+
+    return Response(resMsg, status = resStatus)
